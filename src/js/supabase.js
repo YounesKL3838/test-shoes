@@ -51,17 +51,37 @@ export async function fetchAllFromSupabase() {
         !prodsRes.error && Array.isArray(prodsRes.data) && prodsRes.data.length > 0
           ? prodsRes.data.map((row) => ({
               id: row.id,
+              slug: row.slug || `shoe-${row.id}`,
               name: row.name_ar || row.name_fr,
               name_fr: row.name_fr || row.name_ar,
               category: row.category || 'Talons',
+              description_ar: row.description_ar || '',
+              description_fr: row.description_fr || '',
               price: Number(row.price || 0),
-              originalPrice: Number(row.original_price || Math.round(Number(row.price || 0) * 1.25)),
-              discountPercent: Number(row.discount_percent || 20),
+              originalPrice: Number(row.original_price || row.price || 0),
+              discountPrice:
+                row.discount_price !== null && row.discount_price !== undefined
+                  ? Number(row.discount_price)
+                  : null,
+              discountPercent: Number(row.discount_percent ?? 0),
+              isVisible: row.is_visible !== false,
+              isNew: Boolean(row.is_new ?? true),
+              isBestSeller: Boolean(row.is_best_seller ?? false),
+              isSpecialOffer: Boolean(row.is_special_offer ?? false),
+              colorName: row.color_name || 'Beige',
+              colorHex: row.color_hex || '#D2B48C',
+              colors: Array.isArray(row.colors) ? row.colors : [row.color_name || 'Beige'],
+              sizeFrom: Number(row.size_from || 36),
+              sizeTo: Number(row.size_to || 41),
+              defaultSizeStock: Number(row.default_size_stock ?? 5),
+              sizes: Array.isArray(row.sizes) ? row.sizes : [36, 37, 38, 39, 40, 41],
+              sizeStock:
+                row.size_stock && typeof row.size_stock === 'object'
+                  ? row.size_stock
+                  : { 36: 5, 37: 5, 38: 5, 39: 5, 40: 5, 41: 5 },
               stock: Number(row.stock ?? 10),
               image: row.image,
               gallery: Array.isArray(row.gallery) ? row.gallery : [row.image],
-              colors: Array.isArray(row.colors) ? row.colors : ['Rose', 'Noir', 'Beige'],
-              sizes: Array.isArray(row.sizes) ? row.sizes : [36, 37, 38, 39, 40],
             }))
           : null,
 
@@ -140,12 +160,31 @@ export async function syncProductToSupabase(prod) {
     await supabase.from('products').upsert(
       {
         id: prod.id,
+        slug: prod.slug || `shoe-${prod.id}`,
         name_ar: prod.name || prod.name_fr,
         name_fr: prod.name_fr || prod.name,
         category: prod.category || 'Talons',
+        description_ar: prod.description_ar || '',
+        description_fr: prod.description_fr || '',
         price: Number(prod.price || 0),
-        original_price: Math.round(Number(prod.price || 0) * 1.25),
-        discount_percent: 20,
+        original_price: Number(prod.originalPrice || prod.price || 0),
+        discount_price:
+          prod.discountPrice !== null && prod.discountPrice !== undefined && prod.discountPrice !== ''
+            ? Number(prod.discountPrice)
+            : null,
+        discount_percent: Number(prod.discountPercent ?? 0),
+        is_visible: prod.isVisible !== false,
+        is_new: Boolean(prod.isNew ?? true),
+        is_best_seller: Boolean(prod.isBestSeller ?? false),
+        is_special_offer: Boolean(prod.isSpecialOffer ?? false),
+        color_name: prod.colorName || 'Beige',
+        color_hex: prod.colorHex || '#D2B48C',
+        colors: Array.isArray(prod.colors) ? prod.colors : [prod.colorName || 'Beige'],
+        size_from: Number(prod.sizeFrom || 36),
+        size_to: Number(prod.sizeTo || 41),
+        default_size_stock: Number(prod.defaultSizeStock ?? 5),
+        sizes: Array.isArray(prod.sizes) ? prod.sizes : [36, 37, 38, 39, 40, 41],
+        size_stock: prod.sizeStock || {},
         stock: Number(prod.stock ?? 0),
         image: prod.image,
         gallery: Array.isArray(prod.gallery) ? prod.gallery : [prod.image],

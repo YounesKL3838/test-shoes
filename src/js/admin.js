@@ -2,7 +2,7 @@
  * ShoeStyle — لوحة التحكم الإدارية الشاملة ثنائية اللغة (العربية / Français)
  * Mobile-First Chic Blush Pink & Ivory Identity — Vanilla JS + LocalStorage
  */
-import { IMAGES, PRODUCTS, WILAYAS, formatDA } from './data.js';
+import { COLOR_SWATCHES, IMAGES, PRODUCTS, WILAYAS, formatDA } from './data.js';
 import { store, showToast } from './app_bridge.js';
 import {
   deleteLandingPageFromSupabase,
@@ -620,6 +620,160 @@ function saveJSON(key, value) {
   }
 }
 
+function buildSizeStockRange(fromSize = 36, toSize = 41, defaultQty = 5, existingMap = {}) {
+  const start = Math.min(Number(fromSize) || 36, Number(toSize) || 41);
+  const end = Math.max(Number(fromSize) || 36, Number(toSize) || 41);
+  const map = {};
+  for (let sz = start; sz <= end; sz++) {
+    map[sz] =
+      existingMap && existingMap[sz] !== undefined
+        ? Math.max(0, Number(existingMap[sz]))
+        : Math.max(0, Number(defaultQty));
+  }
+  return map;
+}
+
+function sumSizeStock(sizeStockMap) {
+  if (!sizeStockMap || typeof sizeStockMap !== 'object') return 0;
+  return Object.values(sizeStockMap).reduce((sum, v) => sum + Math.max(0, Number(v || 0)), 0);
+}
+
+/**
+ * توليد وتجهيز جميع حقول المنتج تلقائياً بناءً على وصف مختصر أو نوع الحذاء
+ */
+function generateProductFromBrief(rawBrief = '') {
+  const text = (rawBrief || 'صندل بيج بكعب مريح للسهرات').trim();
+  const lower = text.toLowerCase();
+
+  // 1. استنتاج التصنيف (Category)
+  let category = 'Talons';
+  let catSlug = 'escarpin-talon';
+  let catArLabel = 'حذاء بكعب';
+  let catFrNoun = 'Escarpins à Talon';
+
+  if (lower.includes('صندل') || lower.includes('sandale')) {
+    category = 'Sandales';
+    catSlug = 'sandale-talon';
+    catArLabel = 'صندل نسائي';
+    catFrNoun = 'Sandales à Talon';
+  } else if (
+    lower.includes('رياضي') ||
+    lower.includes('سنيكرز') ||
+    lower.includes('باسكت') ||
+    lower.includes('sneaker') ||
+    lower.includes('basket')
+  ) {
+    category = 'Sneakers';
+    catSlug = 'sneakers-mode';
+    catArLabel = 'حذاء رياضي سنيكرز';
+    catFrNoun = 'Sneakers Chic';
+  } else if (
+    lower.includes('بوت') ||
+    lower.includes('بوتين') ||
+    lower.includes('botte') ||
+    lower.includes('bottine')
+  ) {
+    category = 'Bottes';
+    catSlug = 'bottines-cuir';
+    catArLabel = 'بوت نسائي أنيق';
+    catFrNoun = 'Bottines Élégantes';
+  } else if (
+    lower.includes('باليرين') ||
+    lower.includes('مسطح') ||
+    lower.includes('ballerine')
+  ) {
+    category = 'Ballerines';
+    catSlug = 'ballerine-confort';
+    catArLabel = 'باليرين مريحة';
+    catFrNoun = 'Ballerines Souples';
+  }
+
+  // 2. استنتاج اللون وكود الـ Hex
+  let colorName = 'Beige';
+  let colorHex = '#D2B48C';
+  let colorAr = 'بيج ناعم';
+  let colorSlug = 'beige';
+
+  if (lower.includes('أسود') || lower.includes('اسود') || lower.includes('noir') || lower.includes('black')) {
+    colorName = 'Noir';
+    colorHex = '#1A1A1E';
+    colorAr = 'أسود ملكي';
+    colorSlug = 'noir';
+  } else if (lower.includes('أبيض') || lower.includes('ابيض') || lower.includes('blanc') || lower.includes('white')) {
+    colorName = 'Blanc';
+    colorHex = '#F8F6F4';
+    colorAr = 'أبيض ناصع';
+    colorSlug = 'blanc';
+  } else if (lower.includes('أحمر') || lower.includes('احمر') || lower.includes('rouge') || lower.includes('red')) {
+    colorName = 'Rouge';
+    colorHex = '#B91C2E';
+    colorAr = 'أحمر جذاب';
+    colorSlug = 'rouge';
+  } else if (lower.includes('ذهبي') || lower.includes('دوغي') || lower.includes('dore') || lower.includes('doré') || lower.includes('gold')) {
+    colorName = 'Doré';
+    colorHex = '#D4AF37';
+    colorAr = 'ذهبي لامع';
+    colorSlug = 'dore';
+  } else if (lower.includes('وردي') || lower.includes('روز') || lower.includes('rose') || lower.includes('pink')) {
+    colorName = 'Rose';
+    colorHex = '#F38BA8';
+    colorAr = 'وردي بودري';
+    colorSlug = 'rose-poudre';
+  }
+
+  // 3. توليد الاسم التسويقي بالعربية والفرنسية والرابط (Slug)
+  const name_ar =
+    text.length > 6
+      ? `${text} — إصدار فاخر باللون ال${colorAr}`
+      : `${catArLabel} فاخر باللون ال${colorAr}`;
+  const name_fr = `${catFrNoun} ${colorName} Raffiné`;
+  const slug = `${catSlug}-${colorSlug}`;
+
+  // 4. توليد الوصف التفصيلي بالعربية والفرنسية
+  const description_ar = `تألقي بإطلالة أنثوية ساحرة مع ${name_ar}. صُمم بعناية فائقة من خامات عالية الجودة بلمسة ناعمة مع نعل داخلي مبطن ومريح للقدم طوال اليوم، ليمنحكِ الثبات والأناقة في السهرات، المناسبات الخاصة، والإطلالات الراقية.`;
+  const description_fr = `Sublimez votre allure avec ces ${name_fr}. Conçues dans une matière souple de qualité supérieure avec une semelle intérieure coussinée ultra-confortable, elles offrent un maintien parfait et un style chic pour vos soirées et sorties quotidiennes.`;
+
+  // 5. السعر المقترح والمقاسات
+  const originalPrice = category === 'Bottes' ? 6900 : category === 'Talons' ? 6200 : 5400;
+  const discountPrice = category === 'Bottes' ? 5490 : category === 'Talons' ? 4790 : 3990;
+  const sizeFrom = 36;
+  const sizeTo = 41;
+  const defaultSizeStock = 5;
+  const sizeStock = buildSizeStockRange(sizeFrom, sizeTo, defaultSizeStock);
+
+  const categoryImageMap = {
+    Talons: IMAGES.talons,
+    Sneakers: IMAGES.sneakers,
+    Sandales: IMAGES.sandales,
+    Bottes: IMAGES.ballerinesBoots,
+    Ballerines: IMAGES.ballerinesBoots,
+  };
+
+  return {
+    brief: text,
+    name: name_ar,
+    name_fr,
+    slug,
+    category,
+    description_ar,
+    description_fr,
+    originalPrice,
+    discountPrice,
+    isVisible: true,
+    isNew: true,
+    isBestSeller: true,
+    isSpecialOffer: true,
+    colorName,
+    colorHex,
+    sizeFrom,
+    sizeTo,
+    defaultSizeStock,
+    sizeStock,
+    stock: sumSizeStock(sizeStock),
+    image: categoryImageMap[category] || IMAGES.talons,
+  };
+}
+
 export const adminState = {
   activeTab: 'inventory', // 'inventory' | 'orders' | 'cms' | 'landing' | 'shipping'
   editingLandingId: null,
@@ -628,8 +782,32 @@ export const adminState = {
   orderFilterStatus: 'all',
   inventorySearch: '',
 
+  // حالة مسودة إضافة/تعديل المنتج التفصيلية (الأقسام الـ 3 + التوليد الذكي)
+  draftProductBrief: '',
+  draftGeneratedPreview: null,
   draftProductImage: IMAGES.talons,
   draftProductGallery: [],
+  draftProductForm: {
+    name: '',
+    name_fr: '',
+    slug: 'sandale-beige-talon',
+    category: 'Sandales',
+    description_ar: '',
+    description_fr: '',
+    originalPrice: 6200,
+    discountPrice: 4790,
+    isVisible: true,
+    isNew: true,
+    isBestSeller: false,
+    isSpecialOffer: false,
+    colorName: 'Beige',
+    colorHex: '#D2B48C',
+    sizeFrom: 36,
+    sizeTo: 41,
+    defaultSizeStock: 5,
+    sizeStock: buildSizeStockRange(36, 41, 5),
+  },
+
   draftLandingMainImage: IMAGES.talons,
   draftLandingGallery: [IMAGES.talons, IMAGES.hero],
   draftCmsLogo: null,
@@ -639,16 +817,50 @@ export const adminState = {
   landingPages: loadJSON(LANDING_STORAGE_KEY, DEFAULT_LANDING_PAGES),
   inventory: loadJSON(
     INVENTORY_STORAGE_KEY,
-    PRODUCTS.map((p, idx) => ({
-      id: p.id,
-      name: p.name_ar || p.name_fr,
-      name_fr: p.name_fr || p.name_ar,
-      price: p.price,
-      image: p.image,
-      gallery: p.gallery || [p.image],
-      category: p.category,
-      stock: idx === 1 ? 3 : idx === 4 ? 2 : idx === 7 ? 4 : 14,
-    }))
+    PRODUCTS.map((p, idx) => {
+      const szList = Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes : [36, 37, 38, 39, 40];
+      const szFrom = Math.min(...szList);
+      const szTo = Math.max(...szList);
+      const defQty = idx === 1 ? 1 : idx === 4 ? 1 : 3;
+      const szMap = buildSizeStockRange(szFrom, szTo, defQty);
+      const primaryColor = (Array.isArray(p.colors) && p.colors[0]) || 'Beige';
+      const swatchHex = COLOR_SWATCHES[primaryColor]?.hex || '#D2B48C';
+      return {
+        id: p.id,
+        slug:
+          p.slug ||
+          (p.name_fr || p.id)
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, ''),
+        name: p.name_ar || p.name_fr,
+        name_fr: p.name_fr || p.name_ar,
+        category: p.category,
+        description_ar: p.description_ar || '',
+        description_fr: p.description_fr || '',
+        price: p.price,
+        originalPrice: p.originalPrice || Math.round(p.price * 1.25),
+        discountPrice: p.price,
+        discountPercent: p.discountPercent || 20,
+        isVisible: p.isVisible !== false,
+        isNew: Boolean(p.isNew ?? true),
+        isBestSeller: Boolean(p.isBestSeller ?? false),
+        isSpecialOffer: Boolean(p.isSpecialOffer ?? false),
+        colorName: primaryColor,
+        colorHex: swatchHex,
+        colors: Array.isArray(p.colors) ? p.colors : [primaryColor],
+        sizeFrom: szFrom,
+        sizeTo: szTo,
+        defaultSizeStock: defQty,
+        sizes: szList,
+        sizeStock: szMap,
+        image: p.image,
+        gallery: p.gallery || [p.image],
+        stock: idx === 1 ? 3 : idx === 4 ? 2 : idx === 7 ? 4 : sumSizeStock(szMap),
+      };
+    })
   ),
   orders: loadJSON(ORDERS_ADMIN_KEY, DEFAULT_ORDERS),
   shipping: loadJSON(SHIPPING_STORAGE_KEY, {
@@ -664,39 +876,95 @@ export const adminState = {
 
   syncWithStorefront() {
     this.inventory.forEach((invItem) => {
+      if (invItem.colorName && invItem.colorHex) {
+        if (!COLOR_SWATCHES[invItem.colorName]) {
+          COLOR_SWATCHES[invItem.colorName] = {
+            hex: invItem.colorHex,
+            label_fr: invItem.colorName,
+            label_ar: invItem.colorName,
+          };
+        } else {
+          COLOR_SWATCHES[invItem.colorName].hex = invItem.colorHex;
+        }
+      }
+
+      const effectivePrice =
+        invItem.discountPrice !== null &&
+        invItem.discountPrice !== undefined &&
+        invItem.discountPrice !== '' &&
+        Number(invItem.discountPrice) > 0
+          ? Number(invItem.discountPrice)
+          : Number(invItem.originalPrice || invItem.price || 0);
+
+      const origPrice = Number(invItem.originalPrice || effectivePrice);
+      const discPercent =
+        origPrice > effectivePrice && origPrice > 0
+          ? Math.round(((origPrice - effectivePrice) / origPrice) * 100)
+          : 0;
+
+      const sizesList =
+        invItem.sizeStock && Object.keys(invItem.sizeStock).length > 0
+          ? Object.keys(invItem.sizeStock).map((s) => Number(s))
+          : Array.isArray(invItem.sizes) && invItem.sizes.length > 0
+          ? invItem.sizes
+          : [36, 37, 38, 39, 40, 41];
+
+      const colorsList =
+        Array.isArray(invItem.colors) && invItem.colors.length > 0
+          ? invItem.colors
+          : [invItem.colorName || 'Beige', 'Noir', 'Rose'];
+
       const existing = PRODUCTS.find((p) => p.id === invItem.id);
       if (existing) {
+        existing.slug = invItem.slug;
         existing.name_ar = invItem.name || invItem.name_fr;
         existing.name_fr = invItem.name_fr || invItem.name;
-        existing.price = Number(invItem.price);
-        existing.image = invItem.image;
         existing.category = invItem.category;
+        existing.description_ar =
+          invItem.description_ar || existing.description_ar || invItem.name;
+        existing.description_fr =
+          invItem.description_fr || existing.description_fr || invItem.name_fr;
+        existing.price = effectivePrice;
+        existing.originalPrice = origPrice > effectivePrice ? origPrice : null;
+        existing.discountPercent = discPercent;
+        existing.isVisible = invItem.isVisible !== false;
+        existing.isNew = Boolean(invItem.isNew);
+        existing.isBestSeller = Boolean(invItem.isBestSeller);
+        existing.isSpecialOffer = Boolean(invItem.isSpecialOffer);
+        existing.colors = colorsList;
+        existing.sizes = sizesList;
+        existing.image = invItem.image;
         if (invItem.gallery && invItem.gallery.length > 0) {
           existing.gallery = invItem.gallery;
         }
-      } else {
+      } else if (invItem.isVisible !== false) {
         PRODUCTS.unshift({
           id: invItem.id,
+          slug: invItem.slug,
           name_fr: invItem.name_fr || invItem.name,
           name_ar: invItem.name || invItem.name_fr,
           category: invItem.category,
-          price: Number(invItem.price),
-          originalPrice: Math.round(Number(invItem.price) * 1.25),
-          discountPercent: 20,
+          price: effectivePrice,
+          originalPrice: origPrice > effectivePrice ? origPrice : null,
+          discountPercent: discPercent,
           rating: 4.9,
           reviewsCount: 45,
-          isNew: true,
-          isBestSeller: true,
-          isSpecialOffer: false,
-          colors: ['Rose', 'Noir', 'Beige'],
-          sizes: [36, 37, 38, 39, 40],
+          isVisible: true,
+          isNew: Boolean(invItem.isNew ?? true),
+          isBestSeller: Boolean(invItem.isBestSeller ?? false),
+          isSpecialOffer: Boolean(invItem.isSpecialOffer ?? false),
+          colors: colorsList,
+          sizes: sizesList,
           image: invItem.image,
           gallery:
             invItem.gallery && invItem.gallery.length > 0
               ? invItem.gallery
               : [invItem.image],
-          description_fr: invItem.name_fr || invItem.name,
-          description_ar: `${invItem.name || invItem.name_fr} بتصميم عصري وخامة مريحة عالية الجودة.`,
+          description_fr:
+            invItem.description_fr || invItem.name_fr || invItem.name,
+          description_ar:
+            invItem.description_ar ||
+            `${invItem.name || invItem.name_fr} بتصميم عصري وخامة مريحة عالية الجودة.`,
         });
       }
     });
@@ -970,19 +1238,62 @@ export function renderAdminDashboard() {
 }
 
 /**
- * القسم 1: إدارة المنتجات والمخزون
+ * تنسيق البطاقة النصية المستخرجة وفق الهيكل المطلوب (1. المعلومات الأساسية، 2. السعر والعرض، 3. المقاسات والألوان والمخزون)
+ */
+function formatGeneratedProductSpec(gen) {
+  if (!gen) return '';
+  const catAr = CATEGORY_LABELS[gen.category]?.ar || gen.category;
+  const yn = (val) => (val ? 'نعم' : 'لا');
+  const sizeRows = Object.entries(gen.sizeStock || {})
+    .map(([sz, qty]) => `    - مقاس ${sz}: ${qty} قطع`)
+    .join('\n');
+
+  return `1. المعلومات الأساسية:
+- الاسم بالعربية: ${gen.name}
+- Nom en français: ${gen.name_fr}
+- الرابط (Slug): ${gen.slug}
+- التصنيف: ${catAr} (${gen.category})
+- الوصف بالعربية: ${gen.description_ar}
+- Description en français: ${gen.description_fr}
+
+2. السعر والعرض:
+- السعر الأصلي (د.ج): ${gen.originalPrice} د.ج
+- سعر التخفيض (اختياري): ${gen.discountPrice ? `${gen.discountPrice} د.ج` : 'لا يوجد'}
+- خيارات العرض:
+  * ظاهر في المتجر: ${yn(gen.isVisible)}
+  * وصل حديثاً: ${yn(gen.isNew)}
+  * الأكثر مبيعاً: ${yn(gen.isBestSeller)}
+  * مميز: ${yn(gen.isSpecialOffer)}
+
+3. المقاسات والألوان والمخزون:
+- اسم اللون (بالفرنسية/الإنجليزية للواجهة): ${gen.colorName}
+- كود اللون (Hex Code): ${gen.colorHex}
+- المقاسات والمخزون:
+  * نطاق المقاسات: من ${gen.sizeFrom} إلى ${gen.sizeTo}
+  * الكمية الافتراضية لكل مقاس: ${gen.defaultSizeStock} قطع
+  * جدول تفصيلي للمقاسات والكميات (الإجمالي: ${gen.stock} قطعة):
+${sizeRows}`;
+}
+
+/**
+ * القسم 1: إدارة المنتجات والمخزون (مع المولد الذكي والأقسام الـ 3 التفصيلية)
  */
 function renderInventorySection() {
   const tr = t();
   const lang = getLang();
+  const isFr = lang === 'fr';
 
   const editingProd = adminState.editingProductId
     ? adminState.inventory.find((p) => p.id === adminState.editingProductId)
     : null;
 
+  const df = adminState.draftProductForm;
   const currentProdImg =
     adminState.draftProductImage || (editingProd ? editingProd.image : IMAGES.talons);
   const currentProdGallery = adminState.draftProductGallery || [];
+
+  const sizeMap = df.sizeStock || buildSizeStockRange(df.sizeFrom, df.sizeTo, df.defaultSizeStock);
+  const totalCalculatedStock = sumSizeStock(sizeMap);
 
   const lowStockItems = adminState.inventory.filter((p) => Number(p.stock) < 5);
 
@@ -992,6 +1303,7 @@ function renderInventorySection() {
       !q ||
       (p.name && p.name.toLowerCase().includes(q)) ||
       (p.name_fr && p.name_fr.toLowerCase().includes(q)) ||
+      (p.slug && p.slug.toLowerCase().includes(q)) ||
       p.category.toLowerCase().includes(q)
   );
 
@@ -1011,7 +1323,13 @@ function renderInventorySection() {
           <h2 class="adm-card-title">
             ${editingProd ? tr.inv.editProdTitle(getProdDisplayName(editingProd)) : tr.inv.addProdTitle}
           </h2>
-          <p class="adm-card-sub">${tr.inv.prodFormSub}</p>
+          <p class="adm-card-sub">
+            ${
+              isFr
+                ? 'Remplissez manuellement ou générez automatiquement toutes les sections (1. Infos de base, 2. Prix & Affichage, 3. Pointures, Couleurs & Stock).'
+                : 'املأ الحقول يدوياً أو اكتب نوع الحذاء باختصار ليتم استخراج وتوليد جميع الحقول الـ 3 تلقائياً بدقة.'
+            }
+          </p>
         </div>
         ${
           editingProd
@@ -1020,137 +1338,447 @@ function renderInventorySection() {
         }
       </div>
 
+      <!-- صندوق التوليد والتعبئة التلقائية من وصف مختصر -->
+      <div style="background:linear-gradient(135deg, #fff5f8 0%, #fff 100%); border:1.5px dashed #f38ba8; border-radius:1rem; padding:1rem; margin-bottom:1.25rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.6rem;">
+          <label for="adm-product-brief-input" style="font-size:0.85rem; font-weight:800; color:#b84a69;">
+            ${
+              isFr
+                ? '✨ Assistant de remplissage intelligent — Décrivez la chaussure en quelques mots :'
+                : '✨ المساعد الذكي لتجهيز المنتج — اكتب هنا اسم أو نوع الحذاء أو صفاته باختصار:'
+            }
+          </label>
+          <div style="display:flex; gap:0.35rem; flex-wrap:wrap;">
+            <button type="button" data-adm-action="quick-brief-preset" data-brief="صندل بيج بكعب عالي مريح للسهرات" class="adm-btn adm-btn-soft adm-btn-sm" style="font-size:0.7rem; padding:0.25rem 0.55rem;">
+              ${isFr ? 'Exemple: Sandale Beige' : 'مثال: صندل بيج بكعب'}
+            </button>
+            <button type="button" data-adm-action="quick-brief-preset" data-brief="حذاء كعب عالي كلاسيك أسود ملكي للسهرات" class="adm-btn adm-btn-soft adm-btn-sm" style="font-size:0.7rem; padding:0.25rem 0.55rem;">
+              ${isFr ? 'Exemple: Escarpin Noir' : 'مثال: كعب أسود ملكي'}
+            </button>
+            <button type="button" data-adm-action="quick-brief-preset" data-brief="حذاء رياضي سنيكرز أبيض ناصع مريح للمشي" class="adm-btn adm-btn-soft adm-btn-sm" style="font-size:0.7rem; padding:0.25rem 0.55rem;">
+              ${isFr ? 'Exemple: Sneakers Blanc' : 'مثال: سنيكرز أبيض'}
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+          <input
+            id="adm-product-brief-input"
+            type="text"
+            class="adm-input"
+            style="flex:1; min-width:220px; background:#fff;"
+            placeholder="${
+              isFr
+                ? 'Ex: Sandale beige à talon confortable pour soirée...'
+                : 'مثال: صندل بيج بكعب مريح للسهرات والمناسبات...'
+            }"
+            value="${adminState.draftProductBrief || ''}"
+          />
+          <button
+            type="button"
+            data-adm-action="generate-from-brief"
+            class="adm-btn adm-btn-pink"
+            style="white-space:nowrap;"
+          >
+            ${
+              isFr
+                ? '⚡ Générer & Remplir tous les champs'
+                : '⚡ توليد وملء جميع الحقول تلقائياً'
+            }
+          </button>
+        </div>
+
+        ${
+          adminState.draftGeneratedPreview
+            ? `
+            <div style="margin-top:0.85rem; background:#fff; border:1px solid #f2dce4; border-radius:0.85rem; padding:0.85rem;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.5rem;">
+                <span style="font-size:0.78rem; font-weight:800; color:#18181b;">
+                  ${
+                    isFr
+                      ? '📋 Fiche produit complète générée (prête et copiée dans les champs ci-dessous) :'
+                      : '📋 بطاقة بيانات المنتج المستخرجة بالتنسيق الكامل (تم تعبئتها في الحقول بالأسفل تلقائياً):'
+                  }
+                </span>
+                <button
+                  type="button"
+                  data-adm-action="copy-generated-spec"
+                  class="adm-btn adm-btn-soft adm-btn-sm"
+                >
+                  ${isFr ? '📋 Copier le texte formaté' : '📋 نسخ النص المنسق'}
+                </button>
+              </div>
+              <pre id="adm-generated-spec-text" style="margin:0; white-space:pre-wrap; font-family:inherit; font-size:0.76rem; line-height:1.65; color:#3f3f46; background:#fdf8fa; padding:0.75rem; border-radius:0.65rem; border:1px solid #f5e4ea; max-height:220px; overflow-y:auto;">${formatGeneratedProductSpec(adminState.draftGeneratedPreview)}</pre>
+            </div>
+          `
+            : ''
+        }
+      </div>
+
       <form id="adm-product-form" class="adm-form-grid">
-        <div class="adm-field full">
-          <label class="adm-label">${tr.inv.mainPhotoLabel}</label>
-          <div class="adm-upload-box">
-            <div class="adm-upload-left">
-              <img
-                id="adm-prod-img-preview"
-                src="${currentProdImg}"
-                alt="Product"
-                referrerpolicy="no-referrer"
-                class="adm-upload-thumb"
+        <!-- =========================================================
+             1. المعلومات الأساسية (Informations de base)
+             ========================================================= -->
+        <div class="adm-field full" style="background:#fdf8fa; border:1px solid #f3dce4; border-radius:0.9rem; padding:1rem;">
+          <h3 style="margin:0 0 0.85rem; font-size:0.95rem; font-weight:800; color:#b84a69; display:flex; align-items:center; gap:0.4rem;">
+            <span>1.</span>
+            <span>${isFr ? 'Informations de base' : 'المعلومات الأساسية'}</span>
+          </h3>
+
+          <div class="adm-form-grid">
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Nom en arabe (الاسم بالعربية)' : 'الاسم بالعربية (اسم تسويقي جذاب للمنتج)'}</label>
+              <input
+                name="name"
+                type="text"
+                class="adm-input"
+                placeholder="مثال: صندل بيج بكعب أنيق ومريح للسهرات"
+                value="${df.name || ''}"
+                required
               />
-              <div>
-                <span class="adm-upload-title">${tr.inv.uploadTapTitle}</span>
-                <span class="adm-upload-sub">${tr.inv.uploadTapSub}</span>
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">Nom en français (${isFr ? 'Nom du produit' : 'اسم المنتج بالفرنسية'})</label>
+              <input
+                name="name_fr"
+                type="text"
+                class="adm-input"
+                placeholder="Ex: Sandales à Talon Beige Raffiné"
+                value="${df.name_fr || ''}"
+                required
+              />
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Lien URL (Slug en anglais)' : 'الرابط (Slug بالإنجليزية مناسب للـ URL)'}</label>
+              <input
+                name="slug"
+                type="text"
+                dir="ltr"
+                class="adm-input"
+                placeholder="sandale-beige-talon"
+                value="${df.slug || ''}"
+                required
+              />
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Catégorie (التصنيف)' : 'التصنيف (صندل / حذاء بكعب / حذاء رياضي / بوت)'}</label>
+              <select name="category" class="adm-select">
+                ${Object.keys(CATEGORY_LABELS)
+                  .map(
+                    (catId) =>
+                      `<option value="${catId}" ${df.category === catId ? 'selected' : ''}>${CATEGORY_LABELS[catId][lang]}</option>`
+                  )
+                  .join('')}
+              </select>
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Description en arabe (الوصف بالعربية)' : 'الوصف بالعربية (الراحة، الخامة، التصميم، والمناسبات)'}</label>
+              <textarea
+                name="description_ar"
+                rows="3"
+                class="adm-textarea"
+                placeholder="وصف تفصيلي يشمل الراحة، الخامة، التصميم، والمناسبات..."
+              >${df.description_ar || ''}</textarea>
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">Description en français (${isFr ? 'Confort, matière, design' : 'وصف احترافي بالفرنسية مطابق للميزات'})</label>
+              <textarea
+                name="description_fr"
+                rows="3"
+                dir="ltr"
+                class="adm-textarea"
+                placeholder="Description professionnelle en français..."
+              >${df.description_fr || ''}</textarea>
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">${tr.inv.mainPhotoLabel}</label>
+              <div class="adm-upload-box">
+                <div class="adm-upload-left">
+                  <img
+                    id="adm-prod-img-preview"
+                    src="${currentProdImg}"
+                    alt="Product"
+                    referrerpolicy="no-referrer"
+                    class="adm-upload-thumb"
+                  />
+                  <div>
+                    <span class="adm-upload-title">${tr.inv.uploadTapTitle}</span>
+                    <span class="adm-upload-sub">${tr.inv.uploadTapSub}</span>
+                  </div>
+                </div>
+                <span class="adm-btn adm-btn-pink adm-btn-sm">${tr.inv.uploadBtn}</span>
+                <input
+                  id="adm-prod-file-input"
+                  type="file"
+                  accept="image/*"
+                  class="adm-file-hidden"
+                />
               </div>
             </div>
-            <span class="adm-btn adm-btn-pink adm-btn-sm">${tr.inv.uploadBtn}</span>
-            <input
-              id="adm-prod-file-input"
-              type="file"
-              accept="image/*"
-              class="adm-file-hidden"
-            />
+
+            <div class="adm-field">
+              <label class="adm-label">${tr.inv.galleryLabel}</label>
+              <div class="adm-upload-box">
+                <div class="adm-upload-left">
+                  <div>
+                    <span class="adm-upload-title">${tr.inv.galleryTapTitle(currentProdGallery.length)}</span>
+                    <span class="adm-upload-sub">${tr.inv.galleryTapSub}</span>
+                  </div>
+                </div>
+                <span class="adm-btn adm-btn-soft adm-btn-sm">${tr.inv.galleryBtn}</span>
+                <input
+                  id="adm-prod-gallery-input"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  class="adm-file-hidden"
+                />
+              </div>
+              ${
+                currentProdGallery.length > 0
+                  ? `<div class="adm-thumbs-row">
+                      ${currentProdGallery
+                        .map(
+                          (gImg, idx) => `
+                          <div class="adm-thumb-chip">
+                            <img src="${gImg}" alt="Gallery ${idx + 1}" referrerpolicy="no-referrer" />
+                            <button
+                              type="button"
+                              data-adm-action="remove-prod-gallery-img"
+                              data-index="${idx}"
+                              class="adm-thumb-del"
+                            >×</button>
+                          </div>
+                        `
+                        )
+                        .join('')}
+                    </div>`
+                  : ''
+              }
+            </div>
           </div>
         </div>
 
-        <div class="adm-field">
-          <label class="adm-label">${tr.inv.nameArLabel}</label>
-          <input
-            name="name"
-            type="text"
-            class="adm-input"
-            placeholder="${tr.inv.nameArPlaceholder}"
-            value="${editingProd ? editingProd.name : ''}"
-            required
-          />
-        </div>
+        <!-- =========================================================
+             2. السعر والعرض (Prix & Options d'affichage)
+             ========================================================= -->
+        <div class="adm-field full" style="background:#fdf8fa; border:1px solid #f3dce4; border-radius:0.9rem; padding:1rem;">
+          <h3 style="margin:0 0 0.85rem; font-size:0.95rem; font-weight:800; color:#b84a69; display:flex; align-items:center; gap:0.4rem;">
+            <span>2.</span>
+            <span>${isFr ? "Prix & Options d'affichage" : 'السعر والعرض'}</span>
+          </h3>
 
-        <div class="adm-field">
-          <label class="adm-label">${tr.inv.nameFrLabel}</label>
-          <input
-            name="name_fr"
-            type="text"
-            class="adm-input"
-            placeholder="${tr.inv.nameFrPlaceholder}"
-            value="${editingProd ? editingProd.name_fr || editingProd.name : ''}"
-          />
-        </div>
+          <div class="adm-form-grid">
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Prix original (DA) — السعر الأصلي (د.ج)' : 'السعر الأصلي (د.ج) — سعر البيع المقترح'}</label>
+              <input
+                name="originalPrice"
+                type="number"
+                min="100"
+                class="adm-input"
+                placeholder="6200"
+                value="${df.originalPrice ?? 6200}"
+                required
+              />
+            </div>
 
-        <div class="adm-field">
-          <label class="adm-label">${tr.inv.categoryLabel}</label>
-          <select name="category" class="adm-select">
-            ${Object.keys(CATEGORY_LABELS)
-              .map(
-                (catId) =>
-                  `<option value="${catId}" ${editingProd && editingProd.category === catId ? 'selected' : ''}>${CATEGORY_LABELS[catId][lang]}</option>`
-              )
-              .join('')}
-          </select>
-        </div>
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Prix remisé optionnel (DA) — سعر التخفيض (اختياري)' : 'سعر التخفيض (اختياري — اتركه فارغاً إن لم يوجد خصم)'}</label>
+              <input
+                name="discountPrice"
+                type="number"
+                min="0"
+                class="adm-input"
+                placeholder="4790"
+                value="${df.discountPrice ? df.discountPrice : ''}"
+              />
+            </div>
 
-        <div class="adm-field">
-          <label class="adm-label">${tr.inv.priceLabel}</label>
-          <input
-            name="price"
-            type="number"
-            min="100"
-            class="adm-input"
-            placeholder="4990"
-            value="${editingProd ? editingProd.price : ''}"
-            required
-          />
-        </div>
+            <div class="adm-field full">
+              <label class="adm-label">${isFr ? "Options d'affichage (Oui / Non)" : 'خيارات العرض (نعم / لا)'}</label>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:0.65rem;">
+                <div style="background:#fff; border:1px solid #efe2e7; border-radius:0.75rem; padding:0.6rem 0.75rem; display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-size:0.8rem; font-weight:700;">${isFr ? 'Visible en boutique' : 'ظاهر في المتجر'}</span>
+                  <select name="isVisible" class="adm-select" style="width:auto; padding:0.3rem 0.6rem; font-size:0.78rem;">
+                    <option value="yes" ${df.isVisible !== false ? 'selected' : ''}>${isFr ? 'Oui (نعم)' : 'نعم'}</option>
+                    <option value="no" ${df.isVisible === false ? 'selected' : ''}>${isFr ? 'Non (لا)' : 'لا'}</option>
+                  </select>
+                </div>
 
-        <div class="adm-field full">
-          <label class="adm-label">${tr.inv.stockLabel}</label>
-          <input
-            name="stock"
-            type="number"
-            min="0"
-            class="adm-input"
-            placeholder="15"
-            value="${editingProd ? editingProd.stock : '12'}"
-            required
-          />
-        </div>
+                <div style="background:#fff; border:1px solid #efe2e7; border-radius:0.75rem; padding:0.6rem 0.75rem; display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-size:0.8rem; font-weight:700;">${isFr ? 'Nouvel arrivage' : 'وصل حديثاً'}</span>
+                  <select name="isNew" class="adm-select" style="width:auto; padding:0.3rem 0.6rem; font-size:0.78rem;">
+                    <option value="yes" ${df.isNew ? 'selected' : ''}>${isFr ? 'Oui (نعم)' : 'نعم'}</option>
+                    <option value="no" ${!df.isNew ? 'selected' : ''}>${isFr ? 'Non (لا)' : 'لا'}</option>
+                  </select>
+                </div>
 
-        <div class="adm-field full">
-          <label class="adm-label">${tr.inv.galleryLabel}</label>
-          <div class="adm-upload-box">
-            <div class="adm-upload-left">
-              <div>
-                <span class="adm-upload-title">${tr.inv.galleryTapTitle(currentProdGallery.length)}</span>
-                <span class="adm-upload-sub">${tr.inv.galleryTapSub}</span>
+                <div style="background:#fff; border:1px solid #efe2e7; border-radius:0.75rem; padding:0.6rem 0.75rem; display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-size:0.8rem; font-weight:700;">${isFr ? 'Meilleures ventes' : 'الأكثر مبيعاً'}</span>
+                  <select name="isBestSeller" class="adm-select" style="width:auto; padding:0.3rem 0.6rem; font-size:0.78rem;">
+                    <option value="yes" ${df.isBestSeller ? 'selected' : ''}>${isFr ? 'Oui (نعم)' : 'نعم'}</option>
+                    <option value="no" ${!df.isBestSeller ? 'selected' : ''}>${isFr ? 'Non (لا)' : 'لا'}</option>
+                  </select>
+                </div>
+
+                <div style="background:#fff; border:1px solid #efe2e7; border-radius:0.75rem; padding:0.6rem 0.75rem; display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-size:0.8rem; font-weight:700;">${isFr ? 'En vedette / Promo' : 'مميز'}</span>
+                  <select name="isSpecialOffer" class="adm-select" style="width:auto; padding:0.3rem 0.6rem; font-size:0.78rem;">
+                    <option value="yes" ${df.isSpecialOffer ? 'selected' : ''}>${isFr ? 'Oui (نعم)' : 'نعم'}</option>
+                    <option value="no" ${!df.isSpecialOffer ? 'selected' : ''}>${isFr ? 'Non (لا)' : 'لا'}</option>
+                  </select>
+                </div>
               </div>
             </div>
-            <span class="adm-btn adm-btn-soft adm-btn-sm">${tr.inv.galleryBtn}</span>
-            <input
-              id="adm-prod-gallery-input"
-              type="file"
-              accept="image/*"
-              multiple
-              class="adm-file-hidden"
-            />
           </div>
-          ${
-            currentProdGallery.length > 0
-              ? `<div class="adm-thumbs-row">
-                  ${currentProdGallery
-                    .map(
-                      (gImg, idx) => `
-                      <div class="adm-thumb-chip">
-                        <img src="${gImg}" alt="Gallery ${idx + 1}" referrerpolicy="no-referrer" />
-                        <button
-                          type="button"
-                          data-adm-action="remove-prod-gallery-img"
-                          data-index="${idx}"
-                          class="adm-thumb-del"
-                        >×</button>
+        </div>
+
+        <!-- =========================================================
+             3. المقاسات والألوان والمخزون (Pointures, Couleurs & Stock)
+             ========================================================= -->
+        <div class="adm-field full" style="background:#fdf8fa; border:1px solid #f3dce4; border-radius:0.9rem; padding:1rem;">
+          <h3 style="margin:0 0 0.85rem; font-size:0.95rem; font-weight:800; color:#b84a69; display:flex; align-items:center; gap:0.4rem;">
+            <span>3.</span>
+            <span>${isFr ? 'Pointures, Couleurs & Stock' : 'المقاسات والألوان والمخزون'}</span>
+          </h3>
+
+          <div class="adm-form-grid">
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? "Nom de la couleur (FR/EN pour l'interface)" : 'اسم اللون (بالفرنسية/الإنجليزية للواجهة: Beige / Noir / Rose)'}</label>
+              <input
+                name="colorName"
+                type="text"
+                dir="ltr"
+                class="adm-input"
+                placeholder="Beige"
+                value="${df.colorName || 'Beige'}"
+                required
+              />
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Code Couleur (Hex Code)' : 'كود اللون (Hex Code — مثال: #D2B48C)'}</label>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <input
+                  id="adm-color-picker"
+                  type="color"
+                  value="${df.colorHex || '#D2B48C'}"
+                  style="width:44px; height:40px; border:1px solid #e4d5dc; border-radius:0.6rem; cursor:pointer; background:#fff; padding:2px;"
+                />
+                <input
+                  id="adm-color-hex-input"
+                  name="colorHex"
+                  type="text"
+                  dir="ltr"
+                  class="adm-input"
+                  placeholder="#D2B48C"
+                  value="${df.colorHex || '#D2B48C'}"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Plage de pointures (De ... À ...)' : 'نطاق المقاسات: من [36] إلى [41]'}</label>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span style="font-size:0.78rem; color:var(--adm-text-muted);">${isFr ? 'De' : 'من'}</span>
+                <input
+                  id="adm-size-from"
+                  name="sizeFrom"
+                  type="number"
+                  min="34"
+                  max="44"
+                  class="adm-input"
+                  value="${df.sizeFrom || 36}"
+                />
+                <span style="font-size:0.78rem; color:var(--adm-text-muted);">${isFr ? 'À' : 'إلى'}</span>
+                <input
+                  id="adm-size-to"
+                  name="sizeTo"
+                  type="number"
+                  min="34"
+                  max="44"
+                  class="adm-input"
+                  value="${df.sizeTo || 41}"
+                />
+              </div>
+            </div>
+
+            <div class="adm-field">
+              <label class="adm-label">${isFr ? 'Quantité par défaut par pointure' : 'الكمية الافتراضية لكل مقاس (قطع)'}</label>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <input
+                  id="adm-default-size-stock"
+                  name="defaultSizeStock"
+                  type="number"
+                  min="0"
+                  class="adm-input"
+                  value="${df.defaultSizeStock ?? 5}"
+                />
+                <button
+                  type="button"
+                  data-adm-action="apply-default-size-stock"
+                  class="adm-btn adm-btn-soft adm-btn-sm"
+                  style="white-space:nowrap;"
+                >
+                  ${isFr ? 'Appliquer à toutes les pointures' : 'تطبيق على كل المقاسات'}
+                </button>
+              </div>
+            </div>
+
+            <div class="adm-field full">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; flex-wrap:wrap; gap:0.5rem;">
+                <label class="adm-label" style="margin:0;">
+                  ${
+                    isFr
+                      ? 'Tableau détaillé des pointures et quantités :'
+                      : 'جدول تفصيلي للمقاسات والكميات (يمكنك تخصيص كمية كل مقاس على حدة):'
+                  }
+                </label>
+                <span class="adm-badge adm-badge-delivered" id="adm-total-size-stock-badge">
+                  ${
+                    isFr
+                      ? `Stock total calculé : ${totalCalculatedStock} pcs`
+                      : `إجمالي المخزون المحسوب: ${totalCalculatedStock} قطعة`
+                  }
+                </span>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:0.55rem;">
+                ${Object.entries(sizeMap)
+                  .map(
+                    ([sz, qty]) => `
+                    <div style="background:#fff; border:1px solid #efe2e7; border-radius:0.75rem; padding:0.55rem; text-align:center;">
+                      <div style="font-size:0.76rem; font-weight:800; color:#b84a69; margin-bottom:0.3rem;">
+                        ${isFr ? `Pointure ${sz}` : `مقاس ${sz}`}
                       </div>
-                    `
-                    )
-                    .join('')}
-                </div>`
-              : ''
-          }
+                      <input
+                        type="number"
+                        min="0"
+                        data-adm-size-qty="${sz}"
+                        name="size_qty_${sz}"
+                        value="${qty}"
+                        class="adm-input"
+                        style="text-align:center; padding:0.35rem; font-weight:800;"
+                      />
+                    </div>
+                  `
+                  )
+                  .join('')}
+              </div>
+              <input type="hidden" id="adm-calculated-stock-input" name="stock" value="${totalCalculatedStock}" />
+            </div>
+          </div>
         </div>
 
         <div class="adm-field full">
-          <button type="submit" class="adm-btn adm-btn-pink" style="width:100%; padding:0.85rem;">
+          <button type="submit" class="adm-btn adm-btn-pink" style="width:100%; padding:0.95rem; font-size:0.95rem;">
             ${editingProd ? tr.inv.saveProdChanges : tr.inv.addProdNow}
           </button>
         </div>
@@ -1184,12 +1812,21 @@ function renderInventorySection() {
 function renderInventoryCards(productsList) {
   const tr = t();
   const lang = getLang();
+  const isFr = lang === 'fr';
 
   return productsList
     .map((p) => {
       const isLow = Number(p.stock) < 5;
       const isOut = Number(p.stock) === 0;
       const displayName = getProdDisplayName(p);
+      const hasDiscount = p.originalPrice && p.originalPrice > p.price;
+      const sizesRangeText =
+        p.sizeFrom && p.sizeTo
+          ? `${p.sizeFrom}–${p.sizeTo}`
+          : Array.isArray(p.sizes) && p.sizes.length
+          ? `${Math.min(...p.sizes)}–${Math.max(...p.sizes)}`
+          : '36–41';
+
       return `
         <article id="adm-prod-card-${p.id}" class="adm-prod-card ${isLow ? 'low-stock' : ''}">
           <div class="adm-prod-top">
@@ -1211,7 +1848,7 @@ function renderInventoryCards(productsList) {
 
             <div class="adm-prod-info">
               <div style="display:flex; align-items:center; justify-content:space-between; gap:0.4rem;">
-                <span style="font-size:0.7rem; font-weight:700; color:var(--adm-text-muted);">${p.category}</span>
+                <span style="font-size:0.7rem; font-weight:700; color:var(--adm-text-muted);">${CATEGORY_LABELS[p.category]?.[lang] || p.category}</span>
                 <span id="adm-stock-badge-${p.id}">
                   ${
                     isOut
@@ -1223,7 +1860,26 @@ function renderInventoryCards(productsList) {
                 </span>
               </div>
               <h3 class="adm-prod-name">${displayName}</h3>
-              <div class="adm-prod-price">${formatDA(p.price, lang)}</div>
+              <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+                <span class="adm-prod-price">${formatDA(p.price, lang)}</span>
+                ${
+                  hasDiscount
+                    ? `<span style="font-size:0.73rem; text-decoration:line-through; color:var(--adm-text-muted);">${formatDA(p.originalPrice, lang)}</span>`
+                    : ''
+                }
+              </div>
+              <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-top:0.25rem; font-size:0.7rem; color:var(--adm-text-muted);">
+                ${
+                  p.colorHex
+                    ? `<span style="display:inline-flex; align-items:center; gap:0.25rem;">
+                        <span style="width:10px; height:10px; border-radius:50%; background:${p.colorHex}; border:1px solid #d4d4d8; display:inline-block;"></span>
+                        <span>${p.colorName || 'Beige'}</span>
+                      </span>`
+                    : ''
+                }
+                <span>• ${isFr ? 'Pointures' : 'المقاسات'}: ${sizesRangeText}</span>
+                ${p.isVisible === false ? `<span class="adm-badge adm-badge-cancelled">${isFr ? 'Masqué' : 'مخفي'}</span>` : ''}
+              </div>
             </div>
           </div>
 
@@ -2133,6 +2789,115 @@ export function setupAdminEvents() {
         break;
       }
 
+      case 'quick-brief-preset': {
+        const presetText = btn.getAttribute('data-brief') || '';
+        adminState.draftProductBrief = presetText;
+        const generated = generateProductFromBrief(presetText);
+        adminState.draftGeneratedPreview = generated;
+        adminState.draftProductImage = generated.image;
+        adminState.draftProductForm = {
+          name: generated.name,
+          name_fr: generated.name_fr,
+          slug: generated.slug,
+          category: generated.category,
+          description_ar: generated.description_ar,
+          description_fr: generated.description_fr,
+          originalPrice: generated.originalPrice,
+          discountPrice: generated.discountPrice,
+          isVisible: generated.isVisible,
+          isNew: generated.isNew,
+          isBestSeller: generated.isBestSeller,
+          isSpecialOffer: generated.isSpecialOffer,
+          colorName: generated.colorName,
+          colorHex: generated.colorHex,
+          sizeFrom: generated.sizeFrom,
+          sizeTo: generated.sizeTo,
+          defaultSizeStock: generated.defaultSizeStock,
+          sizeStock: { ...generated.sizeStock },
+        };
+        renderAdminDashboard();
+        showToast(
+          getLang() === 'fr'
+            ? '✨ Tous les champs du produit ont été générés et remplis !'
+            : '✨ تم استخراج وتوليد وتجهيز جميع حقول المنتج بنجاح!'
+        );
+        break;
+      }
+
+      case 'generate-from-brief': {
+        const briefInp = document.getElementById('adm-product-brief-input');
+        const rawText =
+          briefInp instanceof HTMLInputElement
+            ? briefInp.value.trim()
+            : adminState.draftProductBrief;
+        adminState.draftProductBrief = rawText || 'صندل بيج بكعب أنيق ومريح للسهرات';
+        const generated = generateProductFromBrief(adminState.draftProductBrief);
+        adminState.draftGeneratedPreview = generated;
+        adminState.draftProductImage = generated.image;
+        adminState.draftProductForm = {
+          name: generated.name,
+          name_fr: generated.name_fr,
+          slug: generated.slug,
+          category: generated.category,
+          description_ar: generated.description_ar,
+          description_fr: generated.description_fr,
+          originalPrice: generated.originalPrice,
+          discountPrice: generated.discountPrice,
+          isVisible: generated.isVisible,
+          isNew: generated.isNew,
+          isBestSeller: generated.isBestSeller,
+          isSpecialOffer: generated.isSpecialOffer,
+          colorName: generated.colorName,
+          colorHex: generated.colorHex,
+          sizeFrom: generated.sizeFrom,
+          sizeTo: generated.sizeTo,
+          defaultSizeStock: generated.defaultSizeStock,
+          sizeStock: { ...generated.sizeStock },
+        };
+        renderAdminDashboard();
+        showToast(
+          getLang() === 'fr'
+            ? '✨ Fiche produit complète générée avec succès !'
+            : '✨ تم توليد وتعبئة جميع حقول المنتج الـ 3 تلقائياً بنجاح!'
+        );
+        break;
+      }
+
+      case 'copy-generated-spec': {
+        const text = formatGeneratedProductSpec(adminState.draftGeneratedPreview);
+        if (text && navigator.clipboard) {
+          navigator.clipboard.writeText(text).catch(() => {});
+        }
+        showToast(
+          getLang() === 'fr'
+            ? '📋 Fiche produit copiée dans le presse-papiers !'
+            : '📋 تم نسخ بطاقة المنتج المنسقة إلى الحافظة!'
+        );
+        break;
+      }
+
+      case 'apply-default-size-stock': {
+        const df = adminState.draftProductForm;
+        const fromInp = document.getElementById('adm-size-from');
+        const toInp = document.getElementById('adm-size-to');
+        const defInp = document.getElementById('adm-default-size-stock');
+        const sFrom = fromInp instanceof HTMLInputElement ? Number(fromInp.value || 36) : df.sizeFrom;
+        const sTo = toInp instanceof HTMLInputElement ? Number(toInp.value || 41) : df.sizeTo;
+        const defQty = defInp instanceof HTMLInputElement ? Number(defInp.value || 5) : df.defaultSizeStock;
+
+        df.sizeFrom = Math.min(sFrom, sTo);
+        df.sizeTo = Math.max(sFrom, sTo);
+        df.defaultSizeStock = Math.max(0, defQty);
+        df.sizeStock = buildSizeStockRange(df.sizeFrom, df.sizeTo, df.defaultSizeStock);
+        renderAdminDashboard();
+        showToast(
+          getLang() === 'fr'
+            ? `Quantité (${df.defaultSizeStock} pcs) appliquée aux pointures ${df.sizeFrom}–${df.sizeTo}`
+            : `تم تطبيق الكمية الافتراضية (${df.defaultSizeStock} قطع) على المقاسات من ${df.sizeFrom} إلى ${df.sizeTo}`
+        );
+        break;
+      }
+
       case 'edit-product': {
         const prod = adminState.inventory.find((p) => p.id === id);
         if (prod) {
@@ -2141,6 +2906,36 @@ export function setupAdminEvents() {
           adminState.draftProductGallery = Array.isArray(prod.gallery)
             ? [...prod.gallery]
             : [prod.image];
+
+          const szFrom = prod.sizeFrom || 36;
+          const szTo = prod.sizeTo || 41;
+          const defQty = prod.defaultSizeStock ?? 5;
+          adminState.draftProductForm = {
+            name: prod.name || '',
+            name_fr: prod.name_fr || prod.name || '',
+            slug: prod.slug || 'sandale-beige-talon',
+            category: prod.category || 'Talons',
+            description_ar: prod.description_ar || '',
+            description_fr: prod.description_fr || '',
+            originalPrice: prod.originalPrice || prod.price || 5800,
+            discountPrice:
+              prod.discountPrice && prod.discountPrice < (prod.originalPrice || prod.price)
+                ? prod.discountPrice
+                : prod.price,
+            isVisible: prod.isVisible !== false,
+            isNew: Boolean(prod.isNew ?? true),
+            isBestSeller: Boolean(prod.isBestSeller ?? false),
+            isSpecialOffer: Boolean(prod.isSpecialOffer ?? false),
+            colorName: prod.colorName || (Array.isArray(prod.colors) && prod.colors[0]) || 'Beige',
+            colorHex: prod.colorHex || '#D2B48C',
+            sizeFrom: szFrom,
+            sizeTo: szTo,
+            defaultSizeStock: defQty,
+            sizeStock:
+              prod.sizeStock && Object.keys(prod.sizeStock).length > 0
+                ? { ...prod.sizeStock }
+                : buildSizeStockRange(szFrom, szTo, defQty),
+          };
           renderAdminDashboard();
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -2149,8 +2944,29 @@ export function setupAdminEvents() {
 
       case 'cancel-product-edit': {
         adminState.editingProductId = null;
+        adminState.draftGeneratedPreview = null;
         adminState.draftProductImage = IMAGES.talons;
         adminState.draftProductGallery = [];
+        adminState.draftProductForm = {
+          name: '',
+          name_fr: '',
+          slug: 'sandale-beige-talon',
+          category: 'Sandales',
+          description_ar: '',
+          description_fr: '',
+          originalPrice: 6200,
+          discountPrice: 4790,
+          isVisible: true,
+          isNew: true,
+          isBestSeller: false,
+          isSpecialOffer: false,
+          colorName: 'Beige',
+          colorHex: '#D2B48C',
+          sizeFrom: 36,
+          sizeTo: 41,
+          defaultSizeStock: 5,
+          sizeStock: buildSizeStockRange(36, 41, 5),
+        };
         renderAdminDashboard();
         break;
       }
@@ -2219,10 +3035,72 @@ export function setupAdminEvents() {
     }
   });
 
-  // المعاينة الحية وتعديل المخزون والبحث
+  // المعاينة الحية وتعديل المخزون والبحث وتزامن نموذج المنتج
   root.addEventListener('input', (e) => {
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
+
+    if (target instanceof HTMLInputElement && target.id === 'adm-product-brief-input') {
+      adminState.draftProductBrief = target.value;
+    }
+
+    // تزامن حقول نموذج المنتج (الأقسام الـ 3) مع المسودة الحية
+    if (target.closest('#adm-product-form')) {
+      const df = adminState.draftProductForm;
+
+      if (target instanceof HTMLInputElement && target.id === 'adm-color-picker') {
+        df.colorHex = target.value;
+        const hexText = document.getElementById('adm-color-hex-input');
+        if (hexText instanceof HTMLInputElement) hexText.value = target.value;
+      } else if (target instanceof HTMLInputElement && target.id === 'adm-color-hex-input') {
+        df.colorHex = target.value;
+        const picker = document.getElementById('adm-color-picker');
+        if (picker instanceof HTMLInputElement && /^#[0-9A-Fa-f]{6}$/.test(target.value.trim())) {
+          picker.value = target.value.trim();
+        }
+      } else if (target instanceof HTMLInputElement && target.hasAttribute('data-adm-size-qty')) {
+        const sz = target.getAttribute('data-adm-size-qty');
+        if (sz) {
+          df.sizeStock[sz] = Math.max(0, Number(target.value || 0));
+          const total = sumSizeStock(df.sizeStock);
+          const badge = document.getElementById('adm-total-size-stock-badge');
+          if (badge) {
+            badge.textContent =
+              getLang() === 'fr'
+                ? `Stock total calculé : ${total} pcs`
+                : `إجمالي المخزون المحسوب: ${total} قطعة`;
+          }
+          const hiddenTotal = document.getElementById('adm-calculated-stock-input');
+          if (hiddenTotal instanceof HTMLInputElement) {
+            hiddenTotal.value = String(total);
+          }
+        }
+      } else if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        const fieldName = target.getAttribute('name');
+        if (fieldName && fieldName in df) {
+          if (
+            fieldName === 'isVisible' ||
+            fieldName === 'isNew' ||
+            fieldName === 'isBestSeller' ||
+            fieldName === 'isSpecialOffer'
+          ) {
+            df[fieldName] = target.value === 'yes';
+          } else if (
+            fieldName === 'originalPrice' ||
+            fieldName === 'discountPrice' ||
+            fieldName === 'defaultSizeStock'
+          ) {
+            df[fieldName] = target.value === '' ? '' : Number(target.value);
+          } else {
+            df[fieldName] = target.value;
+          }
+        }
+      }
+    }
 
     if (target.closest('#adm-cms-form')) {
       const storeNameEl = document.getElementById('cms-store-name');
@@ -2286,6 +3164,7 @@ export function setupAdminEvents() {
           !q ||
           (p.name && p.name.toLowerCase().includes(q)) ||
           (p.name_fr && p.name_fr.toLowerCase().includes(q)) ||
+          (p.slug && p.slug.toLowerCase().includes(q)) ||
           p.category.toLowerCase().includes(q)
       );
       const grid = document.getElementById('adm-inventory-grid');
@@ -2310,9 +3189,25 @@ export function setupAdminEvents() {
     }
   });
 
-  // رفع الصور من الجهاز + تغيير حالة الطلبات
+  // رفع الصور من الجهاز + تغيير حالة الطلبات + تغيير نطاق المقاسات
   root.addEventListener('change', async (e) => {
     const target = e.target;
+
+    if (
+      target instanceof HTMLInputElement &&
+      (target.id === 'adm-size-from' || target.id === 'adm-size-to')
+    ) {
+      const df = adminState.draftProductForm;
+      const fromEl = document.getElementById('adm-size-from');
+      const toEl = document.getElementById('adm-size-to');
+      const sFrom = fromEl instanceof HTMLInputElement ? Number(fromEl.value || 36) : 36;
+      const sTo = toEl instanceof HTMLInputElement ? Number(toEl.value || 41) : 41;
+      df.sizeFrom = Math.max(34, Math.min(44, Math.min(sFrom, sTo)));
+      df.sizeTo = Math.max(34, Math.min(44, Math.max(sFrom, sTo)));
+      df.sizeStock = buildSizeStockRange(df.sizeFrom, df.sizeTo, df.defaultSizeStock, df.sizeStock);
+      renderAdminDashboard();
+      return;
+    }
 
     if (target instanceof HTMLInputElement && target.type === 'file') {
       const files = Array.from(target.files || []);
@@ -2474,14 +3369,84 @@ export function setupAdminEvents() {
 
       const nameAr = String(fd.get('name') || '').trim();
       const nameFr = String(fd.get('name_fr') || nameAr).trim();
+      const rawSlug = String(fd.get('slug') || 'sandale-beige-talon')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-|-$/g, '');
+      const category = String(fd.get('category') || 'Talons');
+      const descriptionAr = String(fd.get('description_ar') || '').trim();
+      const descriptionFr = String(fd.get('description_fr') || descriptionAr).trim();
+
+      const originalPrice = Math.max(100, Number(fd.get('originalPrice') || 5800));
+      const rawDiscount = Number(fd.get('discountPrice') || 0);
+      const hasDiscount = rawDiscount > 0 && rawDiscount < originalPrice;
+      const finalPrice = hasDiscount ? rawDiscount : originalPrice;
+      const discountPercent = hasDiscount
+        ? Math.max(5, Math.round(((originalPrice - finalPrice) / originalPrice) * 100))
+        : 0;
+
+      const isVisible = fd.get('isVisible') !== 'no';
+      const isNew = fd.get('isNew') === 'yes';
+      const isBestSeller = fd.get('isBestSeller') === 'yes';
+      const isSpecialOffer = fd.get('isSpecialOffer') === 'yes';
+
+      const colorName = String(fd.get('colorName') || 'Beige').trim();
+      const colorHex = String(fd.get('colorHex') || '#D2B48C').trim();
+
+      if (!COLOR_SWATCHES[colorName]) {
+        COLOR_SWATCHES[colorName] = {
+          hex: colorHex,
+          label_ar: colorName,
+          label_fr: colorName,
+        };
+      }
+
+      const sFrom = Math.min(
+        Number(fd.get('sizeFrom') || 36),
+        Number(fd.get('sizeTo') || 41)
+      );
+      const sTo = Math.max(
+        Number(fd.get('sizeFrom') || 36),
+        Number(fd.get('sizeTo') || 41)
+      );
+      const defaultSizeStock = Math.max(0, Number(fd.get('defaultSizeStock') || 5));
+
+      const sizeStock = {};
+      const sizes = [];
+      for (let sz = sFrom; sz <= sTo; sz++) {
+        const qtyVal = fd.get(`size_qty_${sz}`);
+        const qty = qtyVal !== null ? Math.max(0, Number(qtyVal)) : defaultSizeStock;
+        sizeStock[sz] = qty;
+        sizes.push(sz);
+      }
+      const totalStock = sumSizeStock(sizeStock);
 
       const payload = {
         id: adminState.editingProductId || 'ss-' + Date.now().toString().slice(-3),
+        slug: rawSlug || 'sandale-beige-talon',
         name: nameAr,
         name_fr: nameFr,
-        category: String(fd.get('category') || 'Talons'),
-        price: Number(fd.get('price') || 0),
-        stock: Number(fd.get('stock') || 0),
+        category,
+        description_ar: descriptionAr,
+        description_fr: descriptionFr,
+        price: finalPrice,
+        originalPrice,
+        discountPrice: hasDiscount ? rawDiscount : null,
+        discountPercent,
+        isVisible,
+        isNew,
+        isBestSeller,
+        isSpecialOffer,
+        colorName,
+        colorHex,
+        colors: [colorName],
+        sizeFrom: sFrom,
+        sizeTo: sTo,
+        defaultSizeStock,
+        sizes,
+        sizeStock,
+        stock: totalStock,
         image: uploadedImage,
         gallery: uploadedGallery,
       };
@@ -2495,7 +3460,9 @@ export function setupAdminEvents() {
         adminState.inventory.unshift(payload);
         showToast(t().toasts.prodCreated);
       }
+
       adminState.draftProductGallery = [];
+      adminState.draftGeneratedPreview = payload;
       adminState.saveAll();
       syncProductToSupabase(payload);
       renderAdminDashboard();

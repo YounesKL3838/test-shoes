@@ -3,20 +3,34 @@
 -- قم بنسخ هذا الكود وتشغيله في قسم (SQL Editor) داخل لوحة تحكم Supabase الخاصة بك
 -- ============================================================================
 
--- 1. جدول المنتجات والمخزون (Products & Inventory)
+-- 1. جدول المنتجات والمخزون التفصيلي (Products & Detailed Inventory)
 CREATE TABLE IF NOT EXISTS public.products (
   id TEXT PRIMARY KEY,
+  slug TEXT,
   name_ar TEXT NOT NULL,
   name_fr TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'Talons',
+  description_ar TEXT,
+  description_fr TEXT,
   price NUMERIC NOT NULL DEFAULT 0,
   original_price NUMERIC DEFAULT 0,
-  discount_percent INTEGER DEFAULT 20,
-  stock INTEGER NOT NULL DEFAULT 10,
+  discount_price NUMERIC,
+  discount_percent INTEGER DEFAULT 0,
+  is_visible BOOLEAN DEFAULT TRUE,
+  is_new BOOLEAN DEFAULT TRUE,
+  is_best_seller BOOLEAN DEFAULT FALSE,
+  is_special_offer BOOLEAN DEFAULT FALSE,
+  color_name TEXT DEFAULT 'Beige',
+  color_hex TEXT DEFAULT '#D2B48C',
+  colors JSONB DEFAULT '["Beige", "Noir", "Rose"]'::jsonb,
+  size_from INTEGER DEFAULT 36,
+  size_to INTEGER DEFAULT 41,
+  default_size_stock INTEGER DEFAULT 5,
+  sizes JSONB DEFAULT '[36, 37, 38, 39, 40, 41]'::jsonb,
+  size_stock JSONB DEFAULT '{"36":5,"37":5,"38":5,"39":5,"40":5,"41":5}'::jsonb,
+  stock INTEGER NOT NULL DEFAULT 30,
   image TEXT NOT NULL,
   gallery JSONB DEFAULT '[]'::jsonb,
-  colors JSONB DEFAULT '["Rose", "Noir", "Beige"]'::jsonb,
-  sizes JSONB DEFAULT '[36, 37, 38, 39, 40]'::jsonb,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
