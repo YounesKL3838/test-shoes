@@ -1,6 +1,0 @@
-{
-  "name": "Chic & Trendy — Chaussures Femme",
-  "description": "Boutique en ligne de chaussures pour femmes en Algérie : talons, sandales, sneakers, ballerines et bottes au design élégant.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
