@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShoeStyle — Chaussures Femme | أحذية نسائية أنيقة</title>
+    <meta
+      name="description"
+      content="Boutique en ligne de chaussures pour femmes en Algérie : talons, sandales, sneakers, ballerines et bottes. متجر أحذية نسائية فاخرة بالجزائر."
+    />
+    <meta property="og:title" content="ShoeStyle — Chaussures Femme | أحذية نسائية أنيقة" />
+    <meta
+      property="og:description"
+      content="Boutique en ligne de chaussures pour femmes en Algérie : talons, sandales, sneakers, ballerines et bottes. متجر أحذية نسائية فاخرة بالجزائر."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800&family=Cairo:wght@500;600;700;800;900&family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/index.css" />
+  </head>
+  <body>
+    <div class="shoestyle-shell">
+      <!-- En-tête dynamique (Logo ShoeStyle / Retour / Recherche / Langue / Panier) -->
+      <header id="app-header"></header>
+
+      <!-- Contenu principal de l'écran actif -->
+      <main id="app-main"></main>
+    </div>
+
+    <!-- Barre de Navigation Mobile Inférieure (Accueil, Catégories, Favoris, Panier, Compte) -->
+    <nav
+      id="mobile-bottom-nav"
+      class="lg:hidden fixed bottom-0 left-0 right-0 z-50 h-16 bg-white/95 backdrop-blur-md border-t border-black/8 grid grid-cols-5 items-center px-2 shadow-lg"
+      aria-label="Navigation principale mobile"
+    ></nav>
+
+    <!-- Notification Toast -->
+    <div
+      id="toast-notification"
+      class="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-80 px-5 py-2.5 rounded-full bg-[#18181B] text-white text-xs font-semibold shadow-lg transition-all duration-200 opacity-0 translate-y-3 pointer-events-none whitespace-nowrap"
+      role="status"
+      aria-live="polite"
+    >
+      <span id="toast-message">Ajouté au panier</span>
+    </div>
+
+    <script type="module" src="/src/js/app.js"></script>
+  </body>
+</html>
